@@ -1,5 +1,5 @@
 <h1>
-  WAAM Tormach 6-DoF Robot Subtractive Manufacturing Control
+  WAAM Tormach 6-DoF Robot Subtractive Manufacturing with Complience Control
 </h1>
 
 Input:
@@ -13,3 +13,17 @@ My Work:
 Deliverable 
 - Robot Execution demo
 - Execution files and documentations of usage
+
+# Environment Set-up
+
+## Software Requirements:
+* Robot Raconteur
+* Python3
+* tormach RR Driver
+* ATI FT Sensor Driver (included)
+
+### Python Packages:
+* general-robotics-toolbox
+* qpsolvers
+* BeatifulSoup4
+* Numpy
