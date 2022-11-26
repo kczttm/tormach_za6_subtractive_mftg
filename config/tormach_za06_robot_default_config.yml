@@ -1,0 +1,165 @@
+device_info:
+  device:
+    name: tormach_robot
+  manufacturer:
+    name: Tormach
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  model:
+    name: Tormach_ZA96
+    uuid: 542a0160-91bf-492d-a439-e2284415cd5a
+  user_description: Tormach Robot
+  serial_number: 123456789
+  device_classes:
+    - class_identifier:
+        name: robot
+        uuid: b1405752-4f8b-4685-ae0c-f0e5dcc9ad9b
+      subclasses: 
+        - serial
+        - serial_six_axis        
+  implemented_types:
+    - com.robotraconteur.robotics.robot.Robot
+robot_type: serial
+robot_capabilities:
+- jog_command
+- trajectory_command
+- position_command
+chains:
+- kin_chain_identifier: robot_arm
+  H:
+  - x: 0.0
+    y: 0.0
+    z: 1.0
+  - x: 0.0
+    y: 1.0
+    z: 0.0
+  - x: 0.0
+    y: 1.0
+    z: 0.0
+  - x: 1.0
+    y: 0.0
+    z: 0.0
+  - x: 0.0
+    y: 1.0
+    z: 0.0
+  - x: 1.0
+    y: 0.0
+    z: 0.0
+  P:
+  - x: 0.0
+    y: 0.0
+    z: 0.279
+  - x: 0.025
+    y: 0.0
+    z: 0.171
+  - x: 0.0
+    y: -0.001
+    z: 0.454
+  - x: 0.123
+    y: 0.0
+    z: 0.035
+  - x: 0.2965
+    y: 0.001
+    z: 0.0
+  - x: 0.1
+    y: 0.0
+    z: 0.0
+  - x: 0.0
+    y: 0.0
+    z: 0.0
+  flange_identifier: tool0
+  flange_pose:
+    orientation:
+      w: 0.0
+      x: 0.70710678
+      y: 0.0
+      z: 0.70710678
+    position:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+  joint_numbers:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5  
+joint_info:
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_1
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -2.967
+    upper: 2.967
+    velocity: 2.618
+    acceleration: 10
+  joint_type: revolute
+  passive: false
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_2
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -1.745
+    upper: 2.356
+    velocity: 1.963
+    acceleration: 15
+  joint_type: revolute
+  passive: false
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_3
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -2.0944
+    upper: 2.70526
+    velocity: 2.618
+    acceleration: 15
+  joint_type: revolute
+  passive: false
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_4
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -2.618
+    upper: 2.618
+    velocity: 3.569
+    acceleration: 20
+  joint_type: revolute
+  passive: false
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_5
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -2.094
+    upper: 2.094
+    velocity: 3.927
+    acceleration: 20
+  joint_type: revolute
+  passive: false
+- default_effort_units: newton_meter
+  default_units: radian
+  joint_identifier: 
+    name: joint_6
+    uuid: b0b3d80f-8170-4e12-a61e-2a929db39000
+  joint_limits:
+    effort: 1000.0
+    lower: -6.283
+    upper: 6.283
+    velocity: 6.283
+    acceleration: 20
+  joint_type: revolute
+  passive: false
