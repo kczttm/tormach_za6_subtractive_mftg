@@ -49,7 +49,7 @@ class manual_guiding():
         state_flags_enum = robot_const['RobotStateFlags']
         halt_mode = robot_const["RobotCommandMode"]["halt"]
         position_mode = robot_const["RobotCommandMode"]["position_command"]
-        jog_mode = robot_const["RobotCommandMode"]["jog"]
+        #jog_mode = robot_const["RobotCommandMode"]["jog"]
 
         print(robot.robot_info.device_info.device.name+" Connected")
         
@@ -58,25 +58,23 @@ class manual_guiding():
                 q_top = np.load(f)
             print('Found and loaded home joint config:\n',
                   q_top)
-    
+        
+        self.home_H = self.robot_toolbox.fwd(q_top)
+        self.home_q = q_top
         print('*******hands off the robot for initializing jog**********')
-        time.sleep(3)
-
-        robot.command_mode = halt_mode
-        time.sleep(0.1)
-        robot.command_mode = jog_mode
-        robot.jog_freespace(q_top,np.ones(6)*0.5,True) ## true is to wait
-        print('jog complete, \n',
-             'move the tool to [origin, x_lim, y_lim]')
-        time.sleep(3)
         robot.command_mode = halt_mode
         time.sleep(0.1)
         robot.command_mode = position_mode
         
 
-    def start(self):
+    def start(self, homing = True):
         ###enable velocity emulation
         self.vel_ctrl.enable_velocity_mode()
+        if homing:
+            ## home the robot
+            self.jog_joint(self.home_q, 2, threshold=0.1)
+            time.sleep(2)
+            print('robot homed, thread starting')
         self._checker = threading.Thread(target = self.joint_loose,
                                          args = (self.stop_event,))
         self._checker.daemon = True
@@ -98,8 +96,10 @@ class manual_guiding():
                 #command motion based on reading
                 K_force=10 #10
                 K_torque=10 #10
-
-                self.move(K_force*force_bf.T[0], np.eye(3))
+                
+                # with correcting orientation
+                Rd = self.home_H.R
+                self.move(K_force*force_bf.T[0], np.dot(R,Rd.T))
                 print(np.round(self.robot_toolbox.fwd(q_cur).p,3))
                 
                 if event.is_set():
@@ -162,10 +162,60 @@ class manual_guiding():
             traceback.print_exc()
         return
 
+    def jog_joint(self,q,max_v,threshold=0.01,dcc_range=0.1):
+        gain=max(2*max_v,1)
+        diff=q-self.vel_ctrl.joint_position()
+
+        while np.linalg.norm(diff)>threshold:
+
+            diff=q-self.vel_ctrl.joint_position()
+            diff_norm=np.linalg.norm(diff)
+            # qdot=np.where(np.abs(diff) > dcc_range, max_v*diff/np.linalg.norm(diff), gain*diff)
+            if diff_norm<dcc_range:
+                qdot=gain*diff
+            else:
+                qdot=max_v*diff/diff_norm
+
+            # if np.max(np.abs(qdot))>0.8:
+            # 	qdot=np.zeros(6)
+            # 	print('too fast')
+
+            self.vel_ctrl.set_velocity_command(qdot)
+            
+    def jog_joint_movel(self,p,max_v,threshold=0.001,acc_range=0.01,dcc_range=0.04,Rd=[]):
+        q_cur=self.vel_ctrl.joint_position()
+        gain=max(5*max_v,1)
+        p_init=self.robot_toolbox.fwd(q_cur).p
+        diff=p-p_init
+        time_temp=np.linalg.norm(diff)/max_v
+
+
+        while np.linalg.norm(diff)>threshold:
+            q_cur=self.vel_ctrl.joint_position()
+            pose_cur=self.robot_toolbox.fwd(q_cur)
+            diff=p-pose_cur.p
+            diff2=np.linalg.norm(pose_cur.p-p_init)
+
+            diff_norm=np.linalg.norm(diff)
+            diff2_norm=np.linalg.norm(diff2)
+
+            v_temp=max_v*diff/diff_norm
+
+            if diff_norm<dcc_range:
+                v=gain*diff
+            elif diff2_norm<acc_range:
+                v=diff2_norm*v_temp/acc_range
+            else:
+                v=v_temp
+            ###correcting orientation
+            if len(Rd)==0:
+                self.move(v,np.eye(3))
+            else:
+                self.move(v,np.dot(pose_cur.R,Rd.T))
 
 
 if __name__ == "__main__":
     manual_tormach = manual_guiding()
-    manual_tormach.start()
-    time.sleep(10)
+    manual_tormach.start(homing = True)
+    time.sleep(20)
     manual_tormach.stop()
