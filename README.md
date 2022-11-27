@@ -27,3 +27,6 @@ Deliverable
 * qpsolvers
 * BeatifulSoup4
 * Numpy
+
+## Workspace Calibration
+![](demos/01_ws_calib_manualCompliance_and_touchOff.gif)
