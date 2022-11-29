@@ -14,19 +14,19 @@ Deliverable
 - Robot Execution demo
 - Execution files and documentations of usage
 
-## Environment Set-up
+# Environment Set-up
 
-### Software Requirements:
+## Software Requirements:
 * Robot Raconteur
 * Python3
 * tormach RR Driver
 * ATI FT Sensor Driver (included)
 
-### Python Packages:
+## Python Packages:
 * general-robotics-toolbox
 * qpsolvers
 * BeatifulSoup4
 * Numpy
 
-## Workspace Calibration
+# Workspace Calibration
 ![](demos/01_ws_calib_manualCompliance_and_touchOff.gif)
