@@ -14,9 +14,9 @@ Deliverable
 - Robot Execution demo
 - Execution files and documentations of usage
 
-# Environment Set-up
+## Environment Set-up
 
-## Software Requirements:
+### Software Requirements:
 * Robot Raconteur
 * Python3
 * tormach RR Driver
