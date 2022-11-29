@@ -14,8 +14,6 @@ Deliverable
 - Robot Execution demo
 - Execution files and documentations of usage
 
-# Environment Set-up
-
 ## Software Requirements:
 * Robot Raconteur
 * Python3
