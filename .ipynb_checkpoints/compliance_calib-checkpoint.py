@@ -9,7 +9,7 @@ from vel_emulate_sub import EmulatedVelocityControl
 from qpsolvers import solve_qp
 from robots_def import *
 
-class manual_guiding():
+class calib_module():
     def __init__(self):
         
         self.stop_event = threading.Event()
@@ -17,6 +17,9 @@ class manual_guiding():
         
         self.torque=np.zeros(3)
         self.force=np.zeros(3)
+        
+        self.touch_off_on= False
+        self.touch_off_loc = np.zeros(3)
 
         with open('config/tormach_za06_robot_default_config.yml') as robot_file:
             with open('config/tool_pose_modified.yaml') as tool_file:
@@ -65,11 +68,11 @@ class manual_guiding():
         robot.command_mode = halt_mode
         time.sleep(0.1)
         robot.command_mode = position_mode
-        
 
     def start(self, homing = True):
         ###enable velocity emulation
         self.vel_ctrl.enable_velocity_mode()
+        print('velocity control enabled')
         if homing:
             ## home the robot
             self.jog_joint(self.home_q, 2, threshold=0.1)
@@ -79,6 +82,11 @@ class manual_guiding():
                                          args = (self.stop_event,))
         self._checker.daemon = True
         self._checker.start()
+        
+
+    def stop(self):
+        self.stop_event.set()
+        self._checker.join()
         
 
     def joint_loose(self, event):
@@ -100,18 +108,79 @@ class manual_guiding():
                 # with correcting orientation
                 Rd = self.home_H.R
                 self.move(K_force*force_bf.T[0], np.dot(R,Rd.T))
-                print(np.round(self.robot_toolbox.fwd(q_cur).p,3))
+                # print(np.round(self.robot_toolbox.fwd(q_cur).p,3))
                 
                 if event.is_set():
                     self.vel_ctrl.set_velocity_command(np.zeros(6))
                     self.vel_ctrl.disable_velocity_mode()
                     print('velocity control disabled')
                     return
+                
+                if self.touch_off_on:
+                    self.touch_off_loc=self.z_touch_off()
+                    self.touch_off_on = False
+                    print('touch off completed')
     
     
-    def stop(self):
-        self.stop_event.set()
-        self._checker.join()
+    def z_touch_off(self):
+        R_home = self.home_H.R
+        with open('config/tool_pose_modified.yaml') as tool_file:
+            H_tool=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)    
+        R_tool = H_tool[:3,:3]
+        d_FT_COC = 0.0229  # meter, COC -> center of compliance
+        F_z_des = 1.7  # N in COC frame
+        count = 0
+        touchpoint = None
+        # ###enable velocity emulation
+        # self.vel_ctrl.enable_velocity_mode() 
+        while True:
+            try:
+                #convert tool frame to base frame
+                q_cur=self.vel_ctrl.joint_position()
+                R=self.robot_toolbox.fwd(q_cur).R
+                if np.linalg.norm(self.torque)>1 or np.linalg.norm(self.force)>1:
+                    torque_EE=np.dot(R_tool,self.torque)
+                    force_EE=np.dot(R_tool,self.force)
+                else:
+                    torque_EE=np.zeros((3,1))
+                    force_EE=np.zeros((3,1))
+
+                ####### compliance in z dir
+                force_z = force_EE[-1][0]
+                torque_y = torque_EE[1][0]
+                F_z_COC = force_z + (-d_FT_COC)*torque_y
+                ###dynamic damping coefficient
+                damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/2
+                b_z = 0.2*damping_coeff
+                ### v from COC frame to base frame
+                v_z_COC = (F_z_COC - F_z_des) / b_z
+                # COC and EE has same frame
+                R_bf_EE = R @ R_tool.T  # R_wd_
+                v_bf = R_bf_EE @ np.array([0,0, v_z_COC])
+                #print('damping', damping_coeff*2000.)
+                ###pass to controller
+
+                ###QP controller, cartesian linear motion and orientation
+                vd=np.round(np.clip(v_bf, -100, 100),3)  # in mm somehow
+                count += 1
+                if count % 100 == 0:
+                    print('vd', vd,
+                          'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
+                self.move(vd, np.dot(R, R_home.T))
+                #######
+                if np.linalg.norm(vd) < 0.06:
+                    touchpoint = self.robot_toolbox.fwd(q_cur).p
+                    self.jog_joint_movel(touchpoint+np.array([0,0,10]),
+                                         10,threshold=0.05, 
+                                         acc_range=0., Rd = R_home)
+                    break
+            except:
+                traceback.print_exc()
+                break
+
+        self.vel_ctrl.set_velocity_command(np.zeros(6))
+        # self.vel_ctrl.disable_velocity_mode()
+        return touchpoint
     
     
     def wrench_wire_cb(self,w,value,time):
@@ -215,7 +284,10 @@ class manual_guiding():
 
 
 if __name__ == "__main__":
-    manual_tormach = manual_guiding()
+    manual_tormach = calib_module()
     manual_tormach.start(homing = True)
-    time.sleep(20)
+    time.sleep(10)
+    # manual_tormach.touch_off_on = True
+    # time.sleep(20)
+    # print(manual_tormach.touch_off_loc)
     manual_tormach.stop()
