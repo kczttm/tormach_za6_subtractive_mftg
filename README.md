@@ -1,5 +1,5 @@
 <h1>
-  WAAM Tormach 6-DoF Robot Subtractive Manufacturing with Complience Control
+  WAAM Tormach 6-DoF Robot Subtractive Manufacturing with Complience Control (on going)
 </h1>
 
 Input:
