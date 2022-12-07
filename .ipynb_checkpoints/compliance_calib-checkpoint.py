@@ -150,8 +150,8 @@ class calib_module():
                 torque_y = torque_EE[1][0]
                 F_z_COC = force_z + (-d_FT_COC)*torque_y
                 ###dynamic damping coefficient
-                damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/2
-                b_z = 0.2*damping_coeff
+                damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/1.5
+                b_z = 0.3*damping_coeff  #0.2
                 ### v from COC frame to base frame
                 v_z_COC = (F_z_COC - F_z_des) / b_z
                 # COC and EE has same frame
@@ -163,16 +163,20 @@ class calib_module():
                 ###QP controller, cartesian linear motion and orientation
                 vd=np.round(np.clip(v_bf, -100, 100),3)  # in mm somehow
                 count += 1
-                if count % 100 == 0:
-                    print('vd', vd,
-                          'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
+                # if count % 100 == 0:
+                #     print('vd', vd,
+                #           'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
                 self.move(vd, np.dot(R, R_home.T))
                 #######
                 if np.linalg.norm(vd) < 0.06:
+                    print('catching the point')
+                    time.sleep(1)
                     touchpoint = self.robot_toolbox.fwd(q_cur).p
                     self.jog_joint_movel(touchpoint+np.array([0,0,10]),
                                          10,threshold=0.05, 
                                          acc_range=0., Rd = R_home)
+                    print('touch point', touchpoint, 
+                          'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
                     break
             except:
                 traceback.print_exc()

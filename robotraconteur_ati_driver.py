@@ -7,7 +7,7 @@ import platform
 import threading
 import numpy as np
 import time
-
+sys.path.append('toolbox')
 import rpi_ati_net_ft
 
 class ATIDriver(object):

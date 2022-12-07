@@ -1,5 +1,6 @@
 from compliance_calib import *
 np.set_printoptions(suppress=True)
+import traj_gen_wave
 
 idx = 0
 p = []
@@ -36,3 +37,7 @@ if idx == 3:  # calibration finished
 
     with open('config/workspace_H.yaml', 'w') as f:
         yaml.dump(H_BP.tolist(), f)
+        
+    ## generate robot trajectory
+    traj_gen_wave.main()
+    print('finished generating path')

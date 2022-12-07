@@ -17,7 +17,7 @@ ez=np.array([[0],[0],[1]])
 
 class arb_robot(object):
 	#R_tool make tool z pointing to +x at 0 config
-	def __init__(self, H,P,joint_type,upper_limit,lowerer_limit, joint_vel_limit,H_tool=np.eye(4)):
+	def __init__(self, H,P,joint_type,upper_limit,lower_limit, joint_vel_limit,H_tool=np.eye(4)):
 		###All in mm
 		self.H=H
 		self.P=P
@@ -25,10 +25,10 @@ class arb_robot(object):
 		###updated range&vel limit
 		self.joint_type=joint_type
 		self.upper_limit=upper_limit
-		self.lowerer_limit=lowerer_limit
+		self.lower_limit=lower_limit
 		self.joint_vel_limit=joint_vel_limit
 		self.joint_acc_limit=10*self.joint_vel_limit
-		self.robot_def=Robot(self.H,self.P,self.joint_type,joint_lower_limit = self.lowerer_limit, joint_upper_limit = self.upper_limit, joint_vel_limit=self.joint_vel_limit, R_tool=H_tool[:3,:3],p_tool=H_tool[:-1,-1])
+		self.robot_def=Robot(self.H,self.P,self.joint_type,joint_lower_limit = self.lower_limit, joint_upper_limit = self.upper_limit, joint_vel_limit=self.joint_vel_limit, R_tool=H_tool[:3,:3],p_tool=H_tool[:-1,-1])
 
 	def jacobian(self,q):
 		return robotjacobian(self.robot_def,q)
@@ -75,15 +75,15 @@ def yml2robdef(robot_file,tool_file):
 	###joint info
 	joint_type=[]	
 	upper_limit=[]
-	lowerer_limit=[]
+	lower_limit=[]
 	joint_vel_limit=[]
 	for i in range(len(joint_info)):
 		joint_type.append(0 if joint_info[i]['joint_type']=='revolute' else 1)
 		upper_limit.append(joint_info[i]['joint_limits']['upper'])
-		lowerer_limit.append(joint_info[i]['joint_limits']['lower'])
+		lower_limit.append(joint_info[i]['joint_limits']['lower'])
 		joint_vel_limit.append(joint_info[i]['joint_limits']['velocity'])
 
 	###create a robot
-	robot=arb_robot(H,P,joint_type,upper_limit,lowerer_limit, joint_vel_limit,H_tool)
+	robot=arb_robot(H,P,joint_type,upper_limit,lower_limit, joint_vel_limit,H_tool)
 
 	return robot
