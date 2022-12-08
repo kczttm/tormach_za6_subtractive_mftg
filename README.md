@@ -15,9 +15,9 @@ Deliverable
 - Execution files and documentations of usage
 
 ## Software Requirements:
-* Robot Raconteur
+* [Robot Raconteur](https://github.com/robotraconteur/robotraconteur/blob/master/docs/common/installation.md)
 * Python3
-* tormach RR Driver
+* [tormach RR Driver](https://github.com/hehonglu123/Tormach_RR_Driver)
 * ATI FT Sensor Driver (included)
 
 ## Python Packages:
@@ -26,8 +26,23 @@ Deliverable
 * BeatifulSoup4
 * Numpy
 
-# Workspace Calibration
+## Workspace Calibration
 ![](demos/01_ws_calib_manualCompliance_and_touchOff.gif)
+- Work part can be mounted arbitrarily below the robot end effector
+- Three point is need [origin, x-axis boundary, y-axis boundary]
+- run `workspace_calibration.py`
 
-# Trajectory Tracking using a Marker within a workspace
+## Trajectory Tracking
+### cosine wave created using numpy
 ![](demos/02_path_execution_with_a_marker.gif)
+- edit cosine wave parameters and run `curve_gen_wave.py`
+- generate trajectory using `traj_gen_wave.py`
+- edit and run `tormach_machining.py`
+
+### arbitrary groups of curves created else where
+![](demos/03_path_execution_with_a_marker.gif)
+- create a new folder in `./data/`
+- have each curve in a seperate .csv file
+- edit the `data_path` and `file_list` in `__main__` of `tormach_maching.py`
+
+
