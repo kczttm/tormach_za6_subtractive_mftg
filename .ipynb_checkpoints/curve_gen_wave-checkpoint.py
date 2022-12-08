@@ -12,14 +12,15 @@ from utils import *
 # W = 30
 #38x89mm
 data_path = 'data/wave/Curve_dense.csv'
-wave_freq = 3  # cycle on the workspace
 
+spindle_diameter = 3  # mm
 
 ylen = 50  # mm
 xlen = 50  # mm
 
-v_max = 20  # mm/s
-ts = 0.01  # 1/s 
+# one period will advance 1.5*3 mm in y-dir
+wave_freq = ylen / (1.5 * spindle_diameter)  # cycle on the workspace
+
 
 W = xlen/2  # amplitude of the wave
     
@@ -78,7 +79,7 @@ def main():
     # plt.show()
 
     ####################generate equally spaced points##########################
-    num_points=500
+    num_points=1500
     lam=calc_lam_cs(curve)
     lam=np.linspace(0,lam[-1],num_points)
     curve_act=[curve[0]]

@@ -7,12 +7,14 @@ import time, sys, yaml, os, threading, traceback
 from importlib import import_module
 from general_robotics_toolbox import *
 
+import traj_gen_curve
 sys.path.append('toolbox')
 from lambda_calc import *
 from vel_emulate_sub import EmulatedVelocityControl
 from qpsolvers import solve_qp
 from robots_def import *
 from realtime_joint_measure import Joint_Realtime
+import Spindle as SC
 
 class tormach_machining():
     '''
@@ -27,6 +29,8 @@ class tormach_machining():
         self.force=np.zeros(3)
         
         self.vd = 30  # mm/s
+        self.data_path = None
+        self.data_name = None
 
         with open('config/tormach_za06_robot_default_config.yml') as robot_file:
             with open('config/tool_pose_modified.yaml') as tool_file:
@@ -67,6 +71,10 @@ class tormach_machining():
 
         print(self.robot.robot_info.device_info.device.name+" Connected")
         
+        ######### Connect to spindle############
+        self.spindle = SC.Controller(self.robot)
+        
+        
         if os.path.exists('home_joint_angles.npy'):
             with open('home_joint_angles.npy', 'rb') as f:
                 q_top = np.load(f)
@@ -76,8 +84,10 @@ class tormach_machining():
         self.home_H = self.robot_toolbox.fwd(q_top)
         self.home_q = q_top
         
-    def load_traj(self, data_path = 'data/wave/'):
-        curve_bf = read_csv(data_path+'Curve_in_base_frame.csv',header=None).values
+    def load_traj(self, data_path = 'data/wave/',data_name='Curve'):
+        self.data_path = data_path
+        self.data_name = data_name
+        curve_bf = read_csv(data_path+data_name+'_in_base_frame.csv',header=None).values
         lam=calc_lam_cs(curve_bf)
 
         lam_diff=np.gradient(lam)
@@ -96,8 +106,7 @@ class tormach_machining():
         plt.show()
 
         ## evaluate angle limit
-        data_path = 'data/wave/'
-        curve_js = read_csv(data_path+'Curve_js.csv',header=None).values
+        curve_js = read_csv(self.data_path+self.data_name+'_js.csv',header=None).values
         fig, axs = plt.subplots(6,1, figsize = (9, 12))
         joint_names = ['joint_1','joint_2','joint_3','joint_4','joint_5','joint_6']
         for idx, ax in enumerate(axs):
@@ -134,8 +143,9 @@ class tormach_machining():
         self.vel_ctrl.enable_velocity_mode()
         print('velocity control enabled')
         ## jog the robot to starting point
-        self.jog_joint_movel(curve_bf[0,:3], max_v = 30,threshold=0.1, 
-                             acc_range=0., dcc_range = 0.3, Rd = self.home_H.R)
+        self.jog_joint_movel(curve_bf[0,:3], max_v = 20,threshold=0.04, 
+                             acc_range=0., Rd = self.home_H.R)
+        print('trajectory begin')
         time.sleep(2)
         
         ### jog robot through the way points according to time stamp
@@ -213,15 +223,15 @@ class tormach_machining():
             end_pose_real.append(robot_pose.p)
         end_pose_real = np.array(end_pose_real)
 
-        # plt.plot(t_traj,curve_bf[:,:3],'--',linewidth = 4)
-        act_t_traj = np.linspace(rt_joint.clock[0],rt_joint.clock[-1], len(curve_bf))
-        plt.plot(act_t_traj,curve_bf[:,:3],'--',linewidth = 4)        
-        plt.plot(rt_joint.clock,end_pose_real)
-        plt.title('tool tip trajectorys: actual(-), planned(---)')
-        plt.xlabel('time (sec)')
-        plt.ylabel('milimeter')
-        plt.legend(['x','y','z'])
-        plt.show()
+        # #plt.plot(t_traj,curve_bf[:,:3],'--',linewidth = 4)
+        # act_t_traj = np.linspace(rt_joint.clock[0],rt_joint.clock[-1], len(curve_bf))
+        # plt.plot(act_t_traj,curve_bf[:,:3],'--',linewidth = 4)        
+        # plt.plot(rt_joint.clock,end_pose_real)
+        # plt.title('tool tip trajectorys: actual(-), planned(---)')
+        # plt.xlabel('time (sec)')
+        # plt.ylabel('milimeter')
+        # plt.legend(['x','y','z'])
+        # plt.show()
         
         
 
@@ -412,14 +422,26 @@ class tormach_machining():
                 self.move(v,np.eye(3))
             else:
                 self.move(v,np.dot(pose_cur.R,Rd.T))
+                
+        # self.vel_ctrl.set_velocity_command(np.zeros(6))
 
 
 if __name__ == "__main__":
     proj = tormach_machining()
     # proj.jog_home()
-    time.sleep(1)
-    curve_bf, t_traj = proj.load_traj()
+    # curve_bf, t_traj = proj.load_traj()
     # proj.eval_traj(curve_bf, t_traj)
-    proj.jog_traj(curve_bf, t_traj)
+    # proj.jog_traj(curve_bf, t_traj)
+    
+    data_path = 'data/RPI/'
+    file_list = ['R_outside', 'R_inside',
+                 'P_outside', 'P_inside',
+                 'I_outside']
+    for file in file_list:
+        traj_gen_curve.main(data_dir=data_path, file_name=file)
+        curve_bf, t_traj = proj.load_traj(data_path=data_path,data_name=file)
+        # proj.eval_traj(curve_bf, t_traj)
+        proj.jog_traj(curve_bf, t_traj)
+    
     
     

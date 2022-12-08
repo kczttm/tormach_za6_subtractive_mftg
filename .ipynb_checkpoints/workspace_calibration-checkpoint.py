@@ -39,5 +39,5 @@ if idx == 3:  # calibration finished
         yaml.dump(H_BP.tolist(), f)
         
     ## generate robot trajectory
-    traj_gen_wave.main()
-    print('finished generating path')
+    # traj_gen_wave.main()
+    # print('finished generating path')
