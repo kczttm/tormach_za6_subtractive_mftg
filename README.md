@@ -28,3 +28,6 @@ Deliverable
 
 # Workspace Calibration
 ![](demos/01_ws_calib_manualCompliance_and_touchOff.gif)
+
+# Trajectory Tracking using a Marker within a workspace
+![](demos/02_path_execution_with_a_marker.gif)
