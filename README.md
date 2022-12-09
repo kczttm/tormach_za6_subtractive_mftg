@@ -46,7 +46,7 @@ Deliverable
 - edit the `data_path` and `file_list` in `__main__` of `tormach_maching.py`
 
 ## Milling Application
-![](demos/04_04_engrave_milling.gif)
+![](demos/04_engrave_milling.gif)
 - cutting depth can be applied separately
 - spindle speed and feedrate can both be adjusted based on the force / torque sensor readings
 - safe stop system when larger than threshold force detected
