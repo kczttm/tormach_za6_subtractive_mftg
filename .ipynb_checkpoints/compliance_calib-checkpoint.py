@@ -22,7 +22,7 @@ class calib_module():
         self.touch_off_loc = np.zeros(3)
 
         with open('config/tormach_za06_robot_default_config.yml') as robot_file:
-            with open('config/tool_pose_modified.yaml') as tool_file:
+            with open('config/ati_pose.yaml') as tool_file:
                 self.robot_toolbox=yml2robdef(robot_file,tool_file)
         ################################Connect to FT Sensor###################################
         url='rr+tcp://localhost:59823?service=ati_sensor'
@@ -98,6 +98,9 @@ class calib_module():
                 if np.linalg.norm(self.torque)>1 or np.linalg.norm(self.force)>1:
                     torque_bf=np.dot(R,self.torque)
                     force_bf=np.dot(R,self.force)
+                elif(np.linalg.norm(self.torque)==0 and np.linalg.norm(self.force)==0):
+                    print('Restart ATI sensor driver')
+                    return
                 else:
                     torque_bf=np.zeros((3,1))
                     force_bf=np.zeros((3,1))
@@ -107,6 +110,7 @@ class calib_module():
                 
                 # with correcting orientation
                 Rd = self.home_H.R
+                # print(np.linalg.norm(self.force)==0)
                 self.move(K_force*force_bf.T[0], np.dot(R,Rd.T))
                 # print(np.round(self.robot_toolbox.fwd(q_cur).p,3))
                 
@@ -124,39 +128,48 @@ class calib_module():
     
     def z_touch_off(self):
         R_home = self.home_H.R
-        with open('config/tool_pose_modified.yaml') as tool_file:
-            H_tool=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)    
-        R_tool = H_tool[:3,:3]
-        d_FT_COC = 0.0229  # meter, COC -> center of compliance
-        F_z_des = 1.7  # N in COC frame
+        with open('config/ati_pose.yaml') as tool_file:
+            H_ati=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)
+        
+        with open('config/default_tcp.yaml') as tool_file:
+            H_tcp=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)
+        
+        R_ati = H_ati[:3,:3]
+        R_tcp = H_tcp[:3,:3]
+        d_FT_TCP = 0.0229  # meter, COC -> center of compliance
+        F_z_des = 1.7  # N in tool frame
         count = 0
         touchpoint = None
         # ###enable velocity emulation
         # self.vel_ctrl.enable_velocity_mode() 
         while True:
             try:
-                #convert tool frame to base frame
+                #convert ati frame to base frame
                 q_cur=self.vel_ctrl.joint_position()
                 R=self.robot_toolbox.fwd(q_cur).R
                 if np.linalg.norm(self.torque)>1 or np.linalg.norm(self.force)>1:
-                    torque_EE=np.dot(R_tool,self.torque)
-                    force_EE=np.dot(R_tool,self.force)
+                    torque_EE=np.dot(R_ati,self.torque)
+                    force_EE=np.dot(R_ati,self.force)
                 else:
                     torque_EE=np.zeros((3,1))
                     force_EE=np.zeros((3,1))
 
+                force_TCP = R_tcp.T@force_EE
+                torque_TCP = R_tcp.T@force_EE
                 ####### compliance in z dir
-                force_z = force_EE[-1][0]
-                torque_y = torque_EE[1][0]
-                F_z_COC = force_z + (-d_FT_COC)*torque_y
+                force_z = force_TCP[-1][0]
+                # force_
+                torque_y = torque_TCP[1][0]
+                F_z_TCP = force_z + (-d_FT_TCP)*torque_y
                 ###dynamic damping coefficient
                 damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/1.5
-                b_z = 0.3*damping_coeff  #0.2
-                ### v from COC frame to base frame
-                v_z_COC = (F_z_COC - F_z_des) / b_z
-                # COC and EE has same frame
-                R_bf_EE = R @ R_tool.T  # R_wd_
-                v_bf = R_bf_EE @ np.array([0,0, v_z_COC])
+                b_z = 0.4*damping_coeff  #0.3
+                ### v from TCP frame to base frame
+                v_z_TCP = (F_z_TCP - F_z_des) / b_z
+                # TCP to base frame
+                R_bf_EE = R @ R_ati.T  # R_base_end_effector
+                R_bf_TCP = R_bf_EE @ R_tcp
+                v_bf = R_bf_TCP @ np.array([0,0, v_z_TCP])
                 #print('damping', damping_coeff*2000.)
                 ###pass to controller
 
@@ -172,7 +185,8 @@ class calib_module():
                     print('catching the point')
                     time.sleep(1)
                     touchpoint = self.robot_toolbox.fwd(q_cur).p
-                    self.jog_joint_movel(touchpoint+np.array([0,0,10]),
+                    p_up = R_tcp @ np.array([0,0,10])
+                    self.jog_joint_movel(touchpoint+p_up,
                                          10,threshold=0.05, 
                                          acc_range=0., Rd = R_home)
                     print('touch point', touchpoint, 

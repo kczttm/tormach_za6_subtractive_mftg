@@ -27,7 +27,7 @@ class Controller(object):
 		self.io12 = '12'  #TM IO to Spindle I - Pin 04, O - Pin 08
 		self.io13 = '13'  #TM IO to Spindle I - Pin 15, O - Pin 19
 		self.timeout = 3 # seconds
-		self.pulsetime = 0 #0.005 # seconds - 50% Duty Cycle Pulse
+		self.pulsetime = 0.05 # seconds - 50% Duty Cycle Pulse
 		self.speed = 0 # Initialize speed at 0
 		
 	def Start(self):
@@ -112,9 +112,9 @@ class Controller(object):
 				return False
 			for i in range(int(speedDifference/1000)):
 				self.robot.setf_signal(self.io11,1)
-# 				time.sleep(self.pulsetime)
+				time.sleep(self.pulsetime)
 				self.robot.setf_signal(self.io11,0)
-# 				time.sleep(self.pulsetime)
+				time.sleep(self.pulsetime)
 				self.speed = self.speed+sign*1000
 			return True
 		else:

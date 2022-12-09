@@ -10,7 +10,7 @@ tormach_calib.start(homing = True)
 while idx < 3:
     print('***Now place the tool on the ',
           point_order[idx], ' in the parts frame***')
-    key = input('Press <ENTER> to confirm the x,y location, press <q> then <ENTER> to quite the calibration')
+    key = input('Press <ENTER> to confirm the x,y location, press <q> then <ENTER> to quite the calibration\n')
     if key == 'q':
         print('Calibration aborted')
         break
@@ -38,6 +38,6 @@ if idx == 3:  # calibration finished
     with open('config/workspace_H.yaml', 'w') as f:
         yaml.dump(H_BP.tolist(), f)
         
-    ## generate robot trajectory
-    # traj_gen_wave.main()
-    # print('finished generating path')
+    # generate robot trajectory
+    traj_gen_wave.main()
+    print('finished generating path')

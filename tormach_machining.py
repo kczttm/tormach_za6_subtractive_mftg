@@ -8,6 +8,7 @@ from importlib import import_module
 from general_robotics_toolbox import *
 
 import traj_gen_curve
+import traj_gen_wave
 sys.path.append('toolbox')
 from lambda_calc import *
 from vel_emulate_sub import EmulatedVelocityControl
@@ -28,12 +29,13 @@ class tormach_machining():
         self.torque=np.zeros(3)
         self.force=np.zeros(3)
         
-        self.vd = 30  # mm/s
+        self.vd = 10  # mm/s
+        self.cutting_depth = 0  # mm
         self.data_path = None
         self.data_name = None
 
         with open('config/tormach_za06_robot_default_config.yml') as robot_file:
-            with open('config/tool_pose_modified.yaml') as tool_file:
+            with open('config/ati_pose.yaml') as tool_file:
                 self.robot_toolbox=yml2robdef(robot_file,tool_file)
         ################################Connect to FT Sensor###################################
         with open('config/workspace_H.yaml') as f:
@@ -73,6 +75,7 @@ class tormach_machining():
         
         ######### Connect to spindle############
         self.spindle = SC.Controller(self.robot)
+        self.spindle.Stop()
         
         
         if os.path.exists('home_joint_angles.npy'):
@@ -133,27 +136,57 @@ class tormach_machining():
         plt.show()
         
         
-    def jog_traj(self, curve_bf, t_traj):
+    def jog_traj(self, curve_bf, t_traj, depth = -10, spindle = False, rpm = 15000, validation = False):
+        ## check if ATI sensor is on
+        if np.linalg.norm(self.force)==0 and np.linalg.norm(self.force)==0 : 
+            print('Restart ATI sensor driver')
+            return
         
-        ### first jog to the starting point of the trajectory
+        ## first jog to the starting point of the trajectory
         self.robot.command_mode = self.halt_mode
         time.sleep(0.1)
         self.robot.command_mode = self.position_mode
         ## enable velocity emulation
         self.vel_ctrl.enable_velocity_mode()
         print('velocity control enabled')
-        ## jog the robot to starting point
-        self.jog_joint_movel(curve_bf[0,:3], max_v = 20,threshold=0.04, 
+        if validation:
+            ## jog the robot to above starting point
+            p_up_bf = self.H_base_curve[:3,:3] @ np.array([0,0,10])
+            self.jog_joint_movel(curve_bf[0,:3]+p_up_bf, 
+                                 max_v = 20,threshold=0.04, 
+                                 acc_range=0., Rd = self.home_H.R)
+            ## refind the distance to the surface
+            curr_point = self.z_touch(lift = True) 
+            off_set = curr_point - curve_bf[0,:3]
+            print('off_set of ', off_set, ' will be applied to the current trajectory')
+        else:
+            self.jog_joint_movel(curve_bf[0,:3], 
+                                 max_v = 20,threshold=0.04, 
+                                 acc_range=0., Rd = self.home_H.R)
+            off_set = np.zeros(3)
+            
+        if spindle:
+            self.cutting_depth = depth
+            self.spindle.Start()
+            if self.spindle.setSpeed(rpm):
+                print('Spindle Speed at ', rpm)   
+        print('drilling down ', depth, ' mm')
+        p_down = self.H_base_curve[:3,:3] @ np.array([0,0,-depth])
+        print('offset is ', '\n', off_set)
+        self.jog_joint_movel(curve_bf[0,:3]+off_set+p_down, 
+                             max_v = 5,threshold=0.04, 
                              acc_range=0., Rd = self.home_H.R)
-        print('trajectory begin')
         time.sleep(2)
-        
+        # self.spindle.Stop()
+        # self.vel_ctrl.set_velocity_command(np.zeros(6))
+        # self.vel_ctrl.disable_velocity_mode()
+        # return
+        print('trajectory starting')
         ### jog robot through the way points according to time stamp
         threshold=0.2
         acc_range=0.01
         dcc_range=0.04
         Rd=self.home_H.R
-        max_v = self.vd  # mm/s
         
         pt_id = 1  # which position to hit
         pt_last = len(t_traj)  # last point to hit will have decceleration
@@ -162,7 +195,7 @@ class tormach_machining():
         rt_joint.start()
         while pt_id < pt_last: 
             ## get starting pos of this segment
-            p = curve_bf[pt_id,:3]  # target pose
+            p = curve_bf[pt_id,:3]+off_set+p_down  # target pose
             q_cur=self.vel_ctrl.joint_position()
             p_init=self.robot_toolbox.fwd(q_cur).p
             diff_targ = p - curve_bf[pt_id-1,:3]
@@ -171,8 +204,8 @@ class tormach_machining():
             t_targ = t_traj[pt_id]  # target time of arrival
             dt = t_targ - t_traj[pt_id-1]
             # v_avg_mag = min(diff_targ_norm/dt, max_v)  # nominal path speed <= max_v
-            v_avg_mag = diff_targ_norm/dt
-            v_avg = v_avg_mag*diff_targ/diff_targ_norm
+            v_avg_mag = min(diff_targ_norm/dt, self.vd)
+            v_avg = v_avg_mag*diff_targ/diff_targ_norm,self.vd
             # print(pt_id, dt, diff_norm)
             diff_norm = diff_targ_norm
             dynamic_threshold = v_avg_mag * 0.01  # assume data acquisition period = 0.01s
@@ -185,21 +218,8 @@ class tormach_machining():
                 diff_norm=np.linalg.norm(diff)
                 diff2_norm=np.linalg.norm(diff2)
                 
-                # t_targ = t_traj[pt_id]  # target time of arrival
-                # t_cur = time.time()-t_start
-                # dt = max(t_targ-t_cur, 0.01)
-                # v_mag = min(diff_norm/dt, max_v)
-                # # print(pt_id,t_targ, t_cur, diff_norm/dt)
-                # v=v_mag*diff/diff_norm
-                # dt = max(t_targ - t_cur, 0.0001)
                 v = v_avg_mag*diff/diff_norm
 
-                # if diff_norm<dcc_range:
-                #     v=gain*diff
-                # elif diff2_norm<acc_range:
-                #     v=diff2_norm*v_temp/acc_range
-                # else:
-                #     v=v_temp
                 ###correcting orientation
                 self.move(v,np.dot(pose_cur.R,Rd.T))
                 # print(pt_id,diff_norm)
@@ -212,6 +232,8 @@ class tormach_machining():
         self.jog_joint_movel(pose_cur_bf + p_up_bf,
                                          10,threshold=0.05, 
                                          acc_range=0., Rd = Rd)
+        if spindle:
+            self.spindle.Stop()
         
         self.vel_ctrl.set_velocity_command(np.zeros(6))
         self.vel_ctrl.disable_velocity_mode()
@@ -250,69 +272,72 @@ class tormach_machining():
         self.vel_ctrl.disable_velocity_mode()
     
     
-    def z_touch(self):
-        self.robot.command_mode = self.halt_mode
-        time.sleep(0.1)
-        self.robot.command_mode = self.position_mode
-        ###enable velocity emulation
-        self.vel_ctrl.enable_velocity_mode()
+    def z_touch(self,lift = True):
         R_home = self.home_H.R
-        with open('config/tool_pose_modified.yaml') as tool_file:
-            H_tool=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)    
-        R_tool = H_tool[:3,:3]
-        d_FT_COC = 0.0229  # meter, COC -> center of compliance
-        F_z_des = 1.7  # N in COC frame
+        with open('config/ati_pose.yaml') as tool_file:
+            H_ati=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)
+        
+        with open('config/default_tcp.yaml') as tool_file:
+            H_tcp=np.array(yaml.safe_load(tool_file)['H'], dtype=np.float64)    
+        R_ati = H_ati[:3,:3]
+        R_tcp = H_tcp[:3,:3]
+        d_FT_TCP = 0.0229  # meter, COC -> center of compliance
+        F_z_des = 1.7  # N in tool frame
         count = 0
         touchpoint = None
         # ###enable velocity emulation
         # self.vel_ctrl.enable_velocity_mode() 
         while True:
             try:
-                #convert tool frame to base frame
+                #convert ati frame to base frame
                 q_cur=self.vel_ctrl.joint_position()
                 R=self.robot_toolbox.fwd(q_cur).R
                 if np.linalg.norm(self.torque)>1 or np.linalg.norm(self.force)>1:
-                    torque_EE=np.dot(R_tool,self.torque)
-                    force_EE=np.dot(R_tool,self.force)
+                    torque_EE=np.dot(R_ati,self.torque)
+                    force_EE=np.dot(R_ati,self.force)
                 else:
                     torque_EE=np.zeros((3,1))
                     force_EE=np.zeros((3,1))
 
+                force_TCP = R_tcp.T@force_EE
+                torque_TCP = R_tcp.T@force_EE
                 ####### compliance in z dir
-                force_z = force_EE[-1][0]
-                torque_y = torque_EE[1][0]
-                F_z_COC = force_z + (-d_FT_COC)*torque_y
+                force_z = force_TCP[-1][0]
+                # force_
+                torque_y = torque_TCP[1][0]
+                F_z_TCP = force_z + (-d_FT_TCP)*torque_y
                 ###dynamic damping coefficient
-                damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/2
-                b_z = 0.2*damping_coeff
-                ### v from COC frame to base frame
-                v_z_COC = (F_z_COC - F_z_des) / b_z
-                # COC and EE has same frame
-                R_bf_EE = R @ R_tool.T  # R_wd_
-                v_bf = R_bf_EE @ np.array([0,0, v_z_COC])
+                damping_coeff=max(np.linalg.norm(np.array([force_z, torque_y]))/1.5,1) #/1.5
+                b_z = 0.3*damping_coeff  #0.2
+                ### v from TCP frame to base frame
+                v_z_TCP = (F_z_TCP - F_z_des) / b_z
+                # TCP to base frame
+                R_bf_EE = R @ R_ati.T  # R_base_end_effector
+                R_bf_TCP = R_bf_EE @ R_tcp
+                v_bf = R_bf_TCP @ np.array([0,0, v_z_TCP])
                 #print('damping', damping_coeff*2000.)
                 ###pass to controller
 
                 ###QP controller, cartesian linear motion and orientation
                 vd=np.round(np.clip(v_bf, -100, 100),3)  # in mm somehow
                 count += 1
-                if count % 100 == 0:
-                    print('vd', vd,
-                          'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
+                # if count % 100 == 0:
+                #     print('vd', vd,
+                #           'force_EE:', np.round(force_EE.T[0],3),damping_coeff)
                 self.move(vd, np.dot(R, R_home.T))
                 #######
                 if np.linalg.norm(vd) < 0.06:
                     touchpoint = self.robot_toolbox.fwd(q_cur).p
-                    self.jog_joint_movel(touchpoint+np.array([0,0,10]),
-                                         10,threshold=0.05, 
-                                         acc_range=0., Rd = R_home)
+                    if lift:
+                        p_up = R_tcp @ np.array([0,0,10])
+                        self.jog_joint_movel(touchpoint+p_up,
+                                             10,threshold=0.05, 
+                                             acc_range=0., Rd = R_home)
                     break
             except:
                 traceback.print_exc()
                 break
 
-        self.vel_ctrl.set_velocity_command(np.zeros(6))
-        self.vel_ctrl.disable_velocity_mode()
         return touchpoint
     
     
@@ -430,8 +455,8 @@ if __name__ == "__main__":
     proj = tormach_machining()
     # proj.jog_home()
     # curve_bf, t_traj = proj.load_traj()
-    # proj.eval_traj(curve_bf, t_traj)
-    # proj.jog_traj(curve_bf, t_traj)
+#     proj.eval_traj(curve_bf, t_traj)
+    # proj.jog_traj(curve_bf, t_traj, depth = 5, spindle = False)
     
     data_path = 'data/RPI/'
     file_list = ['R_outside', 'R_inside',
@@ -441,7 +466,7 @@ if __name__ == "__main__":
         traj_gen_curve.main(data_dir=data_path, file_name=file)
         curve_bf, t_traj = proj.load_traj(data_path=data_path,data_name=file)
         # proj.eval_traj(curve_bf, t_traj)
-        proj.jog_traj(curve_bf, t_traj)
+        proj.jog_traj(curve_bf, t_traj, depth = 3)
     
     
     
