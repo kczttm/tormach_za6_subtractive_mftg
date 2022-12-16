@@ -89,15 +89,52 @@ In a new Command Prompt / Terminal and start the ATI force torque sensor service
 ```
 python robotraconteur_ati_driver.py
 ```
-(try multiple time if necessary until the servor start successfully)
+- try multiple time if necessary until the servor start successfully
+- avoid touching the tool or the sensor during starting
 
 Mount the part on your workbench, label the origin, x-axis, and y-axis on your part.
 
-Start another Command Prompt / Terminal, start **workspace calibration** by entering:
+(pic)
+
+### Milling Example
+our current part has a width of about 50 mm, we will remove a 50 mm x 50 mm x 3 mm volume from the top of the part.
+
+#### Generate milling tool path in the part frame using python
+edit parameters in `curve_gen_wave.py`:
+- spindle diameter
+- xlen = 50 mm
+- ylen = 50 mm
+Start a Command Prompt / Terminal, then run the file:
+```
+python curve_gen_wave.py
+```
+
+Then we can calibrate the workspace geometry by:
 ```
 python workspace_calibration.py
 ```
-Follow the instruction displayed.
+Follow the instruction displayed. During the calibration, the origin, an arbitrary points on x and on y axis will be collected. The calibration data will only be saved when all three points are recorded. 
+At the end of the calibration, the robot path file will be generated automatically as `traj_gen_wave.py` is called in `workspace_calibration.py`
+
+Next, prepare the spindle by turning on the air inlet and adjusting the pressure to between 0.3 and 0.4 MPa. 
+(pic)
+
+Turn on the spindle controller. If using the spindle in manual mode, then turn on the spindle now. 
+** It is very important to have the air coming out of the spindle during the operation **
+
+Edit the `tormach_machining.py` file to run the following command in `__main__`:
+```
+proj = tormach_machining()
+curve_bf, t_traj = proj.load_traj()
+proj.eval_traj(curve_bf, t_traj)
+proj.jog_traj(curve_bf, t_traj, depth = 3, spindle = False)
+proj.jog_home()
+```
+
+
+
+
+
 
 
 
