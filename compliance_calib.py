@@ -150,6 +150,9 @@ class calib_module():
                 if np.linalg.norm(self.torque)>1 or np.linalg.norm(self.force)>1:
                     torque_EE=np.dot(R_ati,self.torque)
                     force_EE=np.dot(R_ati,self.force)
+                elif(np.linalg.norm(self.torque)==0 and np.linalg.norm(self.force)==0):
+                    print('Restart ATI sensor driver')
+                    return
                 else:
                     torque_EE=np.zeros((3,1))
                     force_EE=np.zeros((3,1))

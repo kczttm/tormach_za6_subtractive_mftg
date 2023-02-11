@@ -453,20 +453,21 @@ class tormach_machining():
 
 if __name__ == "__main__":
     proj = tormach_machining()
-    # proj.jog_home()
-    # curve_bf, t_traj = proj.load_traj()
-#     proj.eval_traj(curve_bf, t_traj)
-    # proj.jog_traj(curve_bf, t_traj, depth = 5, spindle = False)
     
-    data_path = 'data/RPI/'
-    file_list = ['R_outside', 'R_inside',
-                 'P_outside', 'P_inside',
-                 'I_outside']
-    for file in file_list:
-        traj_gen_curve.main(data_dir=data_path, file_name=file)
-        curve_bf, t_traj = proj.load_traj(data_path=data_path,data_name=file)
-        # proj.eval_traj(curve_bf, t_traj)
-        proj.jog_traj(curve_bf, t_traj, depth = 3)
+    curve_bf, t_traj = proj.load_traj()
+    #proj.eval_traj(curve_bf, t_traj)
+    proj.jog_traj(curve_bf, t_traj, depth = 3, spindle = False)
     
+    # data_path = 'data/RPI/'
+    # file_list = ['R_outside', 'R_inside',
+    #              'P_outside', 'P_inside',
+    #              'I_outside']
+    # for file in file_list:
+    #     traj_gen_curve.main(data_dir=data_path, file_name=file)
+    #     curve_bf, t_traj = proj.load_traj(data_path=data_path,data_name=file)
+    #     # proj.eval_traj(curve_bf, t_traj)
+    #     proj.jog_traj(curve_bf, t_traj, depth = 3)
+    proj.jog_home()
+
     
     

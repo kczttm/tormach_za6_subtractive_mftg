@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import sys
 from scipy.optimize import fminbound
+from scipy import signal
 sys.path.append('toolbox')
 from lambda_calc import *
 from utils import *
@@ -13,14 +14,17 @@ from utils import *
 #38x89mm
 data_path = 'data/wave/Curve_dense.csv'
 
-spindle_diameter = 3  # mm
+spindle_diameter = 2.794  # mm
+
 
 ylen = 50  # mm
 xlen = 50  # mm
 
-# one period will advance 1.5*3 mm in y-dir
-wave_freq = ylen / (1.5 * spindle_diameter)  # cycle on the workspace
+x_margin = spindle_diameter 
 
+# one period will advance 1.5*d_spindle mm in y-dir
+wave_freq = np.ceil(ylen / (1.2 * spindle_diameter))  # cycle on the workspace rounded up
+print('number of spindle cycle:', wave_freq)
 
 W = xlen/2  # amplitude of the wave
     
@@ -29,7 +33,8 @@ W = xlen/2  # amplitude of the wave
 def find_point(t):
     fr = wave_freq * 2* np.pi
 
-    x = W * -np.cos(np.multiply(fr,t/xlen)) + W
+    #x = (W+x_margin) * -np.cos(np.multiply(fr,t/xlen)) + W
+    x = (W+x_margin) * -signal.square(np.multiply(fr,t/xlen)) + W
     y = t
     z = np.zeros(len(np.atleast_1d(t)))
 
@@ -79,7 +84,7 @@ def main():
     # plt.show()
 
     ####################generate equally spaced points##########################
-    num_points=1500
+    num_points=2000
     lam=calc_lam_cs(curve)
     lam=np.linspace(0,lam[-1],num_points)
     curve_act=[curve[0]]
